@@ -3,9 +3,14 @@ This lab will guide you on how to set up a K8s cluster environment using Flannel
 configure 3 VMS: manager1, worker1 and worker2. The three VMs will be configured by Vagrant with Ubuntu 18, 1 CPU and 2048GB ram. 
 If you want to modify the resources allocated to the VMS, you can modify the Vagrantfile.
 
+Flannel is a very simple overlay network that satisfies the Kubernetes requirements. Many people have reported success with Flannel and Kubernetes.
+
+https://github.com/coreos/flannel#flannel
+
+
 # Requirements
-- Vagrant
-- VirtualBox
+- Vagrant (https://www.vagrantup.com/downloads.html)
+- VirtualBox (https://www.virtualbox.org/wiki/Downloads)
 
 # Lab
 
