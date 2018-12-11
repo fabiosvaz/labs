@@ -141,7 +141,7 @@ kubectl get pods
 
 And you should see: No resources found. 
 
-You can check the pods for all namespace / system level. Those are the system/base pods K8s rely on.
+You can check the pods for all namespace / system level. Those are the system level pods.
 
 ```
 kubectl get pods --all-namespaces
@@ -161,6 +161,13 @@ kube-system   kube-proxy-k8lt6                   1/1     Running   0          17
 kube-system   kube-proxy-pkz4n                   1/1     Running   0          17h
 kube-system   kube-scheduler-manager1            1/1     Running   0          17h
 ```
+
+By default Kubernetes deployed by kubeadm starts with 3 namespaces:
+
+* **default**: The default namespace for objects with no other namespace. When listing resources with the kubectl get command, we’ve never specified the namespace explicitly, so kubectl always defaulted to the default namespace, showing us just the objects inside that namespace.
+* **kube-system**: The namespace for objects created by the Kubernetes system
+* **kube-public**: Used at cluster Bootstrap and contains cluster-info ConfigMap
+
 
 **TIP**
 
