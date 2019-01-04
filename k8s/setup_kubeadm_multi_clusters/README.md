@@ -77,7 +77,7 @@ sudo swapoff -a
 ```
 
 ## Fix Kubelet config
-Before proceeding with the cluster initialization, we need to fix a kubelet configuration that contains the wrong node IPs. This is required as we are using Vagrant and creating a private network for the lab cluster.
+Before proceeding with the cluster initialization, we need to fix a kubelet configuration on each node that contains a wrong IP. This is required as we are using Vagrant and creating a private network for the lab cluster.
 
 Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. The main Kubernetes interface is on eth1. We need to add an explicit IP address that uses the eth1 interface on the nodes, enabling the manager’s API server to properly access the worker’s kubelet. To confirm the issue, you can run the following command in manager1 node.
 
@@ -134,11 +134,11 @@ status:
 Now, before initializing the master node (manager1), we need to choose a pod network add-on. Depending on which networking plugin you choose, we will need to set the '--pod-network-cidr' with the provider specific value.
 
 ```
-<b>For Calico.</b>
+For Calico:
 
 we must pass --pod-network-cidr=192.168.0.0/16 to kubeadm init
 
-<b>For Flannel.</b>
+For Flannel:
 
 we must pass --pod-network-cidr=10.244.0.0/16 to kubeadm init
 ```
@@ -151,13 +151,13 @@ The --apiserver-advertise-address=192.168.50.100 is important to be set as it wi
 
 To initialize the cluster, execute the following command.
 
-<b>For Calico.</b>
+**For Calico**
 
 ```
 sudo kubeadm init --apiserver-advertise-address=192.168.50.100 --pod-network-cidr=192.168.0.0/16
 ```
 
-<b>For Flannel.</b>
+**For Flannel**
 
 ```
 sudo kubeadm init --apiserver-advertise-address=192.168.50.100 --pod-network-cidr=10.244.0.0/16
@@ -215,7 +215,7 @@ worker2    NotReady    <none>   56s     v1.12.2
 
 ## Install networking plugin
 
-<b>For Calico</b>
+**For Calico**
 Install an etcd instance with the following command on manager1.
 
 ```
@@ -250,7 +250,7 @@ clusterrole.rbac.authorization.k8s.io/calico-node created
 clusterrolebinding.rbac.authorization.k8s.io/calico-node created
 ```
 
-<b>For Flannel</b>
+**For Flannel**
 
 Install the Flannel networking plugin with the following command on manager1.
 
