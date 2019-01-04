@@ -7,13 +7,11 @@ This folder contains labs related to k8s. The idea behind those labs is exercise
 ## Bootstrapping Clusters
 
 * kubeadm: helps you bootstrap a minimum viable Kubernetes cluster that conforms to best practices
-* TBD
 
 ## Cluster Network
 
 * Flannel
 * Calico
-* TBD
 
 Kubernetes approaches networking somewhat differently than Docker does by default. There are 4 distinct networking problems to solve:
 
