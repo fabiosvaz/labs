@@ -64,6 +64,12 @@ sudo apt-get update
 sudo apt-get install -y docker-ce=18.06.1~ce~3-0~ubuntu kubelet=1.12.2-00 kubeadm=1.12.2-00 kubectl=1.12.2-00
 ```
 
+Add vagrant user to docker group to run docker commands with no sudo required
+
+```
+usermod -aG docker vagrant
+```
+
 Prevent updates for the installed packages above.
 
 ```
@@ -74,6 +80,12 @@ Disable swap on all three servers. This is required by kubelet
 
 ```
 sudo swapoff -a
+```
+
+Permanently disable swap to keep it off after any vagrant halt/reboot. kubeadm pre-flight checks look for swap space disabled, since Kubernetes cannot use swap space due to memory limits. If swap is not disabled, this can affect the restart of the Kubernetes cluster on VM reboot.
+
+```
+sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
 
 ## Fix Kubelet config
@@ -191,6 +203,19 @@ And we should see.
 ```
 NAME       STATUS     ROLES    AGE    VERSION
 manager1   NotReady   master   5m9s   v1.12.2
+```
+
+Or add the '-o wide' option to get further information
+
+```
+kubectl get nodes -o wide
+```
+
+And we should see.
+
+```
+NAME       STATUS   ROLES    AGE    VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+manager1   NotReady    master   5m9s   v1.12.2   192.168.50.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
 ```
 
 manager1 should show 'NotReady' status as no networking plugin was installed yet.
@@ -324,6 +349,20 @@ kube-system   kube-proxy-t4bl6                           1/1     Running   0    
 kube-system   kube-scheduler-manager1                    1/1     Running   0          124m
 ```
 
+Verify namespaces created in K8s systems
+
+```
+kubectl get ns
+```
+```
+NAME            STATUS    AGE
+default         Active    1m
+kube-public     Active    1m
+kube-system     Active    1m
+```
+
+Namespaces are intendent to isolate groups/teams and give them access to a set of resources. They avoid name collisions between resources. Namespaces provides with a soft Multitenancy, meaning they not provide full isolation.
+
 By default Kubernetes deployed by kubeadm starts with 3 namespaces:
 
 * **default**: The default namespace for objects with no other namespace. When listing resources with the kubectl get command, we’ve never specified the namespace explicitly, so kubectl always defaulted to the default namespace, showing us just the objects inside that namespace.
@@ -343,6 +382,12 @@ If you made a mistake and want to start over the kubadm init, you can reset what
 
 ```
 kubeadm reset
+```
+
+If you want just switch the networking plugin for example, you can use kubectl to delete/revert the deployment done by the 'kubectl apply'
+
+```
+kubectl delete -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 ```
 
 If you want to check logs of pods from system namespace.
