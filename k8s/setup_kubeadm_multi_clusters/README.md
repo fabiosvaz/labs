@@ -281,6 +281,13 @@ clusterrolebinding.rbac.authorization.k8s.io/calico-node created
 
 **For Flannel**
 
+Enable net.bridge.bridge-nf-call-iptables on all three VMs. This is a requirement for Flannel plugin to work.
+
+```
+echo "net.bridge.bridge-nf-call-iptables=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
 Install the Flannel networking plugin with the following command on manager1.
 
 ```
