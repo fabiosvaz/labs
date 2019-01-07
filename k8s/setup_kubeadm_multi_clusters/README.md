@@ -67,7 +67,7 @@ sudo apt-get install -y docker-ce=18.06.1~ce~3-0~ubuntu kubelet=1.12.2-00 kubead
 Add vagrant user to docker group to run docker commands with no sudo required
 
 ```
-usermod -aG docker vagrant
+sudo usermod -aG docker vagrant
 ```
 
 Prevent updates for the installed packages above.
@@ -88,62 +88,8 @@ Permanently disable swap to keep it off after any vagrant halt/reboot. kubeadm p
 sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
 
-## Fix Kubelet config
-Before proceeding with the cluster initialization, we need to fix a kubelet configuration on each node that contains a wrong IP. This is required as we are using Vagrant and creating a private network for the lab cluster.
-
-Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. The main Kubernetes interface is on eth1. We need to add an explicit IP address that uses the eth1 interface on the nodes, enabling the manager’s API server to properly access the worker’s kubelet. To confirm the issue, you can run the following command in manager1 node.
-
-```
-kubectl get nodes worker1 -o yaml
-```
-
-You will notice a wrong IP, which is the eth0 one.
-
-```
-status:
-  addresses:
-  - address: 10.0.2.15
-    type: InternalIP
-```
-
-The same ip will be visible for manager1 and worker2. To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
-
-```
-KUBELET_EXTRA_ARGS=--node-ip=NODE_IP_ADDR
-```
-
-ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
-
-```
-Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=192.168.50.100
-Worker1 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.101
-Worker2 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.102
-```
-
-Once the kubelet file is edited, we need to restart the kubelet service. Remember, you should do that to all nodes.
-
-```
-sudo systemctl daemon-reload
-sudo systemctl restart kubelet
-```
-
-You can now check again the worker1 node configuration, or worker2, or manager1.
-
-```
-kubectl get nodes worker1 -o yaml
-```
-
-You will notice the correct IP.
-
-```
-status:
-  addresses:
-  - address: 198.168.50.101
-    type: InternalIP
-```
-
 ## Initialize k8s cluster
-Now, before initializing the master node (manager1), we need to choose a pod network add-on. Depending on which networking plugin you choose, we will need to set the '--pod-network-cidr' with the provider specific value.
+Before initializing the master node (manager1), we need to choose a pod network add-on. Depending on which networking plugin you choose, we will need to set the '--pod-network-cidr' with the provider specific value.
 
 ```
 For Calico:
@@ -202,7 +148,7 @@ And we should see.
 
 ```
 NAME       STATUS     ROLES    AGE    VERSION
-manager1   NotReady   master   5m9s   v1.12.2
+manager1   NotReady   master   2m9s   v1.12.2
 ```
 
 Or add the '-o wide' option to get further information
@@ -214,8 +160,8 @@ kubectl get nodes -o wide
 And we should see.
 
 ```
-NAME       STATUS   ROLES    AGE    VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-manager1   NotReady    master   5m9s   v1.12.2   192.168.50.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+NAME       STATUS     ROLES    AGE     VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+manager1   NotReady   master   2m10s   v1.12.2   192.168.50.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
 ```
 
 manager1 should show 'NotReady' status as no networking plugin was installed yet.
@@ -236,6 +182,64 @@ NAME       STATUS      ROLES    AGE     VERSION
 manager1   NotReady    master   10m     v1.12.2
 worker1    NotReady    <none>   2m58s   v1.12.2
 worker2    NotReady    <none>   56s     v1.12.2
+```
+
+## Fix Kubelet config
+Before proceeding with the cluster initialization, we need to fix a kubelet configuration on each node that contains a wrong IP. This is required as we are using Vagrant and creating a private network for the lab cluster.
+
+Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. The main Kubernetes interface is on eth1. We need to add an explicit IP address that uses the eth1 interface on the nodes, enabling the manager’s API server to properly access the worker’s kubelet. To confirm the issue, you can run the following command in manager1 node.
+
+```
+kubectl get nodes manager1 -o yaml
+```
+
+You will notice a wrong IP, which is the eth0 one.
+
+```
+status:
+  addresses:
+  - address: 10.0.2.15
+    type: InternalIP
+```
+
+The same ip will be visible for worker1 and worker2. To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
+
+```
+sudo vi /etc/default/kubelet
+```
+
+```
+KUBELET_EXTRA_ARGS=--node-ip=NODE_IP_ADDR
+```
+
+ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
+
+```
+Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=192.168.50.100
+Worker1 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.101
+Worker2 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.102
+```
+
+Once the kubelet file is edited, we need to restart the kubelet service. Remember, you should do that to all nodes.
+
+```
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+```
+
+You can now check again the worker1 node configuration, or worker2, or manager1.
+
+```
+kubectl get nodes worker1 -o yaml
+```
+
+You will notice the correct IP.
+
+```
+status:
+  addresses:
+  - address: 198.168.50.101
+    type: InternalIP
 ```
 
 ## Install networking plugin
