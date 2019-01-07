@@ -166,89 +166,16 @@ manager1   NotReady   master   2m10s   v1.12.2   192.168.50.100   <none>        
 
 manager1 should show 'NotReady' status as no networking plugin was installed yet.
 
-We can now join the worker1 and worker2 to the lab cluster. The kubeadm init command that you ran on the master had printed a kubeadm join command containing a token and hash. You should run it on both worker nodes with sudo.
-
-sudo kubeadm join <master-ip>:<master-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
-
-Once you join both workers, we can check in the manager1 the list of nodes of out lab cluster.
-
-```
-kubectl get nodes
-```
-```
-It should look something like this:
-
-NAME       STATUS      ROLES    AGE     VERSION
-manager1   NotReady    master   10m     v1.12.2
-worker1    NotReady    <none>   2m58s   v1.12.2
-worker2    NotReady    <none>   56s     v1.12.2
-```
-
-## Fix Kubelet config
-Before proceeding with the cluster initialization, we need to fix a kubelet configuration on each node that contains a wrong IP. This is required as we are using Vagrant and creating a private network for the lab cluster.
-
-Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. The main Kubernetes interface is on eth1. We need to add an explicit IP address that uses the eth1 interface on the nodes, enabling the manager’s API server to properly access the worker’s kubelet. To confirm the issue, you can run the following command in manager1 node.
-
-```
-kubectl get nodes manager1 -o yaml
-```
-
-You will notice a wrong IP, which is the eth0 one.
-
-```
-status:
-  addresses:
-  - address: 10.0.2.15
-    type: InternalIP
-```
-
-The same ip will be visible for worker1 and worker2. To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
-
-```
-sudo vi /etc/default/kubelet
-```
-
-```
-KUBELET_EXTRA_ARGS=--node-ip=NODE_IP_ADDR
-```
-
-ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
-
-```
-Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=192.168.50.100
-Worker1 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.101
-Worker2 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.102
-```
-
-Once the kubelet file is edited, we need to restart the kubelet service. Remember, you should do that to all nodes.
-
-```
-sudo systemctl daemon-reload
-sudo systemctl restart kubelet
-```
-
-You can now check again the worker1 node configuration, or worker2, or manager1.
-
-```
-kubectl get nodes worker1 -o yaml
-```
-
-You will notice the correct IP.
-
-```
-status:
-  addresses:
-  - address: 198.168.50.101
-    type: InternalIP
-```
-
 ## Install networking plugin
 
+We must install a pod network add-on so that your pods can communicate with each other.The network must be deployed before any applications. Also, CoreDNS will not start up before a network is installed
+
 **For Calico**
-Install an etcd instance with the following command on manager1.
+Install Calico with the following command on manager1.
 
 ```
-kubectl apply -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/etcd.yaml
+kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
+kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
 ```
 
 Once it is done, you should see the following outputs.
@@ -256,17 +183,7 @@ Once it is done, you should see the following outputs.
 ```
 daemonset.extensions/calico-etcd created
 service/calico-etcd created
-```
 
-Install the Calico networking plugin with the following command on manager1.
-
-```
-kubectl apply -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
-```
-
-Once it is done, you should see the following outputs.
-
-```
 configmap/calico-config created
 secret/calico-etcd-secrets created
 daemonset.extensions/calico-node created
@@ -308,6 +225,106 @@ daemonset.extensions/kube-flannel-ds-ppc64le created
 daemonset.extensions/kube-flannel-ds-s390x created
 ```
 
+We can now check that the network plugin was intalled and CoreDNS is now started.
+
+```
+kubectl get pods --all-namespaces -o wide
+```
+
+And for Calico, we should see for example.
+
+```
+NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE     IP               NODE       NOMINATED NODE
+kube-system   calico-node-rqpqj                  2/2     Running   0          5m18s   192.168.50.100   manager1   <none>
+kube-system   coredns-576cbf47c7-gc584           1/1     Running   0          13m     192.168.0.3      manager1   <none>
+kube-system   coredns-576cbf47c7-pntmh           1/1     Running   0          13m     192.168.0.2      manager1   <none>
+kube-system   etcd-manager1                      1/1     Running   0          12m     192.168.50.100   manager1   <none>
+kube-system   kube-apiserver-manager1            1/1     Running   0          12m     192.168.50.100   manager1   <none>
+kube-system   kube-controller-manager-manager1   1/1     Running   0          12m     192.168.50.100   manager1   <none>
+kube-system   kube-proxy-lt9j7                   1/1     Running   0          13m     192.168.50.100   manager1   <none>
+kube-system   kube-scheduler-manager1            1/1     Running   0          12m     192.168.50.100   manager1   <none>
+```
+
+## Join workers
+
+We can now join the worker1 and worker2 to the lab cluster. The kubeadm init command that you ran on the master had printed a kubeadm join command containing a token and hash. You should run it on both worker nodes with sudo.
+
+sudo kubeadm join <master-ip>:<master-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+
+Once you join both workers, we can check in the manager1 the list of nodes of out lab cluster.
+
+```
+kubectl get nodes -o wide
+```
+
+And we should see.
+
+```
+NAME       STATUS     ROLES    AGE   VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+manager1   Ready      master   18m   v1.12.2   192.168.50.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+worker1    NotReady   <none>   20s   v1.12.2   192.168.50.101   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+worker2    NotReady   <none>   13s   v1.12.2   192.168.50.102   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+```
+
+## Fix Kubelet config
+We need to fix a kubelet configuration on each node that contains a wrong IP. This is required as we are using Vagrant and creating a private network for the lab cluster.
+
+Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. The main Kubernetes interface is on eth1. We need to add an explicit IP address that uses the eth1 interface on the nodes, enabling the manager’s API server to properly access the worker’s kubelet. To confirm the issue, you can run the following command in manager1 node.
+
+```
+kubectl get nodes manager1 -o yaml
+```
+
+You will notice a wrong IP, which is the eth0 one.
+
+```
+status:
+  addresses:
+  - address: 10.0.2.15
+    type: InternalIP
+```
+
+The same ip will be visible for worker1 and worker2. To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
+
+```
+sudo vi /etc/default/kubelet
+```
+
+```
+KUBELET_EXTRA_ARGS=--node-ip=NODE_IP_ADDR
+```
+
+ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
+
+```
+Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=192.168.50.100
+Worker1 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.101
+Worker2 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.102
+```
+
+Once the kubelet file is edited, we need to restart the kubelet service. Remember, you should do that to all nodes.
+
+```
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+```
+
+We can now check again the worker1 node configuration, or worker2, or manager1.
+
+```
+kubectl get nodes worker1 -o yaml
+```
+
+We should see the correct IP.
+
+```
+status:
+  addresses:
+  - address: 198.168.50.101
+    type: InternalIP
+```
+
+
 ## Checking initialization
 
 After the networking plugin is installed, we can check in the manager1 node that all nodes are 'Ready'.
@@ -343,21 +360,19 @@ kubectl get pods --all-namespaces
 kubectl get pods --all-namespaces
 ```
 ```
-NAMESPACE     NAME                                       READY   STATUS    RESTARTS   AGE
-kube-system   calico-etcd-qqsgq                          1/1     Running   0          118m
-kube-system   calico-kube-controllers-7766648f5c-nqgx7   1/1     Running   1          119m
-kube-system   calico-node-64dn6                          1/1     Running   38         104m
-kube-system   calico-node-jk9b6                          1/1     Running   30         98m
-kube-system   calico-node-zvqw5                          1/1     Running   2          119m
-kube-system   coredns-576cbf47c7-5f72z                   1/1     Running   0          124m
-kube-system   coredns-576cbf47c7-86k6p                   1/1     Running   0          124m
-kube-system   etcd-manager1                              1/1     Running   0          123m
-kube-system   kube-apiserver-manager1                    1/1     Running   0          124m
-kube-system   kube-controller-manager-manager1           1/1     Running   0          124m
-kube-system   kube-proxy-8sfm9                           1/1     Running   0          124m
-kube-system   kube-proxy-g9jwg                           1/1     Running   0          98m
-kube-system   kube-proxy-t4bl6                           1/1     Running   0          104m
-kube-system   kube-scheduler-manager1                    1/1     Running   0          124m
+NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE
+kube-system   calico-node-qsv5f                  2/2     Running   0          5m5s
+kube-system   calico-node-rqpqj                  2/2     Running   0          14m
+kube-system   calico-node-vmkzv                  2/2     Running   0          4m58s
+kube-system   coredns-576cbf47c7-gc584           1/1     Running   0          22m
+kube-system   coredns-576cbf47c7-pntmh           1/1     Running   0          22m
+kube-system   etcd-manager1                      1/1     Running   0          22m
+kube-system   kube-apiserver-manager1            1/1     Running   0          22m
+kube-system   kube-controller-manager-manager1   1/1     Running   0          21m
+kube-system   kube-proxy-6wtjv                   1/1     Running   0          5m5s
+kube-system   kube-proxy-8vzm8                   1/1     Running   0          4m58s
+kube-system   kube-proxy-lt9j7                   1/1     Running   0          22m
+kube-system   kube-scheduler-manager1            1/1     Running   0          22m
 ```
 
 Verify namespaces created in K8s systems
