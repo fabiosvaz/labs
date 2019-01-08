@@ -88,6 +88,36 @@ Permanently disable swap to keep it off after any vagrant halt/reboot. kubeadm p
 sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
 
+## Fix Kubelet config
+We need to fix a kubelet configuration on each VM to set the VM IP specified in the Vagrantfile. This is required as we are using Vagrant and creating a private network for the lab cluster.
+
+Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. By default, Kubernetes (Kubelet) will use the IP from the interface eth0 when we initialize the cluster and join any worker. We need to add the IP address from the eth1 interface on the VMs, enabling the manager’s API server to properly access the worker’s kubelet after the cluster initialization.
+
+To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
+
+```
+sudo vi /etc/default/kubelet
+```
+
+```
+KUBELET_EXTRA_ARGS=--node-ip=VM_IP_ADDR
+```
+
+ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
+
+```
+Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=172.17.4.100
+Worker1 will be:  KUBELET_EXTRA_ARGS=--node-ip=172.17.4.101
+Worker2 will be:  KUBELET_EXTRA_ARGS=--node-ip=172.17.4.102
+```
+
+Once the kubelet file is edited, we need to restart the kubelet service. Remember, you should do that to all nodes.
+
+```
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+```
+
 ## Initialize k8s cluster
 Before initializing the master node (manager1), we need to choose a pod network add-on. Depending on which networking plugin you choose, we will need to set the '--pod-network-cidr' with the provider specific value.
 
@@ -112,13 +142,13 @@ To initialize the cluster, execute the following command.
 **For Calico**
 
 ```
-sudo kubeadm init --apiserver-advertise-address=192.168.50.100 --pod-network-cidr=192.168.0.0/16
+sudo kubeadm init --apiserver-advertise-address=172.17.4.100 --pod-network-cidr=192.168.0.0/16
 ```
 
 **For Flannel**
 
 ```
-sudo kubeadm init --apiserver-advertise-address=192.168.50.100 --pod-network-cidr=10.244.0.0/16
+sudo kubeadm init --apiserver-advertise-address=172.17.4.100 --pod-network-cidr=10.244.0.0/16
 ```
 
 Once kubeadm init is done, you should receive a msg "Your Kubernetes master has initialized successfully!" along with further instructions such as the join command to be used by workers.
@@ -160,14 +190,25 @@ kubectl get nodes -o wide
 And we should see.
 
 ```
-NAME       STATUS     ROLES    AGE     VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-manager1   NotReady   master   2m10s   v1.12.2   192.168.50.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+NAME       STATUS     ROLES    AGE    VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+manager1   NotReady   master   2m6s   v1.12.2   172.17.4.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
 ```
 
-manager1 should show 'NotReady' status as no networking plugin was installed yet.
+manager1 should show 'NotReady' status as no networking plugin was installed yet. Also, notice the INTERNAL-IP matches exactly the one we specified in the /etc/default/kubelet.
+
+Verify namespaces created in K8s cluster
+
+```
+kubectl get ns
+```
+```
+NAME            STATUS    AGE
+default         Active    3m
+kube-public     Active    3m
+kube-system     Active    3m
+```
 
 ## Install networking plugin
-
 We must install a pod network add-on so that your pods can communicate with each other.The network must be deployed before any applications. Also, CoreDNS will not start up before a network is installed
 
 **For Calico**
@@ -181,19 +222,21 @@ kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/
 Once it is done, you should see the following outputs.
 
 ```
-daemonset.extensions/calico-etcd created
-service/calico-etcd created
-
 configmap/calico-config created
-secret/calico-etcd-secrets created
+service/calico-typha created
+deployment.apps/calico-typha created
+poddisruptionbudget.policy/calico-typha created
 daemonset.extensions/calico-node created
 serviceaccount/calico-node created
-deployment.extensions/calico-kube-controllers created
-serviceaccount/calico-kube-controllers created
-clusterrole.rbac.authorization.k8s.io/calico-kube-controllers created
-clusterrolebinding.rbac.authorization.k8s.io/calico-kube-controllers created
-clusterrole.rbac.authorization.k8s.io/calico-node created
-clusterrolebinding.rbac.authorization.k8s.io/calico-node created
+customresourcedefinition.apiextensions.k8s.io/felixconfigurations.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/bgppeers.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/bgpconfigurations.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/ippools.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/hostendpoints.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/clusterinformations.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/globalnetworkpolicies.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/globalnetworksets.crd.projectcalico.org created
+customresourcedefinition.apiextensions.k8s.io/networkpolicies.crd.projectcalico.org created
 ```
 
 **For Flannel**
@@ -234,19 +277,20 @@ kubectl get pods --all-namespaces -o wide
 And for Calico, we should see for example.
 
 ```
-NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE     IP               NODE       NOMINATED NODE
-kube-system   calico-node-rqpqj                  2/2     Running   0          5m18s   192.168.50.100   manager1   <none>
-kube-system   coredns-576cbf47c7-gc584           1/1     Running   0          13m     192.168.0.3      manager1   <none>
-kube-system   coredns-576cbf47c7-pntmh           1/1     Running   0          13m     192.168.0.2      manager1   <none>
-kube-system   etcd-manager1                      1/1     Running   0          12m     192.168.50.100   manager1   <none>
-kube-system   kube-apiserver-manager1            1/1     Running   0          12m     192.168.50.100   manager1   <none>
-kube-system   kube-controller-manager-manager1   1/1     Running   0          12m     192.168.50.100   manager1   <none>
-kube-system   kube-proxy-lt9j7                   1/1     Running   0          13m     192.168.50.100   manager1   <none>
-kube-system   kube-scheduler-manager1            1/1     Running   0          12m     192.168.50.100   manager1   <none>
+NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE     IP             NODE       NOMINATED NODE
+kube-system   calico-node-m4ml2                  2/2     Running   0          40s     172.17.4.100   manager1   <none>
+kube-system   coredns-576cbf47c7-g7748           1/1     Running   0          6m7s    192.168.0.3    manager1   <none>
+kube-system   coredns-576cbf47c7-xqkmc           1/1     Running   0          6m7s    192.168.0.4    manager1   <none>
+kube-system   etcd-manager1                      1/1     Running   0          5m32s   172.17.4.100   manager1   <none>
+kube-system   kube-apiserver-manager1            1/1     Running   0          5m5s    172.17.4.100   manager1   <none>
+kube-system   kube-controller-manager-manager1   1/1     Running   0          5m27s   172.17.4.100   manager1   <none>
+kube-system   kube-proxy-qrvbn                   1/1     Running   0          6m7s    172.17.4.100   manager1   <none>
+kube-system   kube-scheduler-manager1            1/1     Running   0          5m19s   172.17.4.100   manager1   <none>
 ```
 
-## Join workers
+As Calico was installed, CoreDNS will have an IP range based on the --pod-network-cidr=192.168.0.0/16 specified in the kubeadm init.
 
+## Join workers
 We can now join the worker1 and worker2 to the lab cluster. The kubeadm init command that you ran on the master had printed a kubeadm join command containing a token and hash. You should run it on both worker nodes with sudo.
 
 sudo kubeadm join <master-ip>:<master-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
@@ -260,164 +304,56 @@ kubectl get nodes -o wide
 And we should see.
 
 ```
-NAME       STATUS     ROLES    AGE   VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-manager1   Ready      master   18m   v1.12.2   192.168.50.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
-worker1    NotReady   <none>   20s   v1.12.2   192.168.50.101   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
-worker2    NotReady   <none>   13s   v1.12.2   192.168.50.102   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+NAME       STATUS   ROLES    AGE   VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+manager1   Ready    master   12m   v1.12.2   172.17.4.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+worker1    Ready    <none>   41s   v1.12.2   172.17.4.101   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
+worker2    Ready    <none>   34s   v1.12.2   172.17.4.102   <none>        Ubuntu 18.04.1 LTS   4.15.0-39-generic   docker://18.6.1
 ```
 
-## Fix Kubelet config
-We need to fix a kubelet configuration on each node that contains a wrong IP. This is required as we are using Vagrant and creating a private network for the lab cluster.
-
-Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. The main Kubernetes interface is on eth1. We need to add an explicit IP address that uses the eth1 interface on the nodes, enabling the manager’s API server to properly access the worker’s kubelet. To confirm the issue, you can run the following command in manager1 node.
+Also, pods were added for kube-proxy and calico in the joined workers.
 
 ```
-kubectl get nodes manager1 -o yaml
-```
-
-You will notice a wrong IP, which is the eth0 one.
-
-```
-status:
-  addresses:
-  - address: 10.0.2.15
-    type: InternalIP
-```
-
-The same ip will be visible for worker1 and worker2. To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
-
-```
-sudo vi /etc/default/kubelet
+kubectl get pods --all-namespaces -o wide
 ```
 
 ```
-KUBELET_EXTRA_ARGS=--node-ip=NODE_IP_ADDR
+NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE     IP             NODE       NOMINATED NODE
+kube-system   calico-node-lmfkb                  2/2     Running   0          55s     172.17.4.102   worker2    <none>
+kube-system   calico-node-m4ml2                  2/2     Running   0          6m57s   172.17.4.100   manager1   <none>
+kube-system   calico-node-vjqvd                  2/2     Running   0          62s     172.17.4.101   worker1    <none>
+kube-system   coredns-576cbf47c7-g7748           1/1     Running   0          12m     192.168.0.3    manager1   <none>
+kube-system   coredns-576cbf47c7-xqkmc           1/1     Running   0          12m     192.168.0.4    manager1   <none>
+kube-system   etcd-manager1                      1/1     Running   0          11m     172.17.4.100   manager1   <none>
+kube-system   kube-apiserver-manager1            1/1     Running   0          11m     172.17.4.100   manager1   <none>
+kube-system   kube-controller-manager-manager1   1/1     Running   0          11m     172.17.4.100   manager1   <none>
+kube-system   kube-proxy-nfzw7                   1/1     Running   0          55s     172.17.4.102   worker2    <none>
+kube-system   kube-proxy-qrvbn                   1/1     Running   0          12m     172.17.4.100   manager1   <none>
+kube-system   kube-proxy-w24sx                   1/1     Running   0          62s     172.17.4.101   worker1    <none>
+kube-system   kube-scheduler-manager1            1/1     Running   0          11m     172.17.4.100   manager1   <none>
 ```
-
-ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
-
-```
-Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=192.168.50.100
-Worker1 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.101
-Worker2 will be:  KUBELET_EXTRA_ARGS=--node-ip=192.168.50.102
-```
-
-Once the kubelet file is edited, we need to restart the kubelet service. Remember, you should do that to all nodes.
-
-```
-sudo systemctl daemon-reload
-sudo systemctl restart kubelet
-```
-
-We can now check again the worker1 node configuration, or worker2, or manager1.
-
-```
-kubectl get nodes worker1 -o yaml
-```
-
-We should see the correct IP.
-
-```
-status:
-  addresses:
-  - address: 198.168.50.101
-    type: InternalIP
-```
-
-
-## Checking initialization
-
-After the networking plugin is installed, we can check in the manager1 node that all nodes are 'Ready'.
-
-```
-kubectl get nodes
-```
-```
-NAME       STATUS   ROLES    AGE   VERSION
-manager1   Ready    master   50m   v1.12.2
-worker1    Ready    <none>   47m   v1.12.2
-worker2    Ready    <none>   47m   v1.12.2
-```
-
-Make sure that all three of your nodes are listed and that all have a STATUS of Ready. It can take a few seconds to get the status to 'Ready'.
-
-You can run additional commands to verify the bootstrap of k8s.
-
-```
-kubectl get pods
-```
-
-And you should see: No resources found. This is because we did not deployed any application yet. Everything we have done is under system level namespace.
-
-You can check the pods for all namespace / system level.
-
-```
-kubectl get pods --all-namespaces
-```
-
-<b>For Calico</b>
-```
-kubectl get pods --all-namespaces
-```
-```
-NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE
-kube-system   calico-node-qsv5f                  2/2     Running   0          5m5s
-kube-system   calico-node-rqpqj                  2/2     Running   0          14m
-kube-system   calico-node-vmkzv                  2/2     Running   0          4m58s
-kube-system   coredns-576cbf47c7-gc584           1/1     Running   0          22m
-kube-system   coredns-576cbf47c7-pntmh           1/1     Running   0          22m
-kube-system   etcd-manager1                      1/1     Running   0          22m
-kube-system   kube-apiserver-manager1            1/1     Running   0          22m
-kube-system   kube-controller-manager-manager1   1/1     Running   0          21m
-kube-system   kube-proxy-6wtjv                   1/1     Running   0          5m5s
-kube-system   kube-proxy-8vzm8                   1/1     Running   0          4m58s
-kube-system   kube-proxy-lt9j7                   1/1     Running   0          22m
-kube-system   kube-scheduler-manager1            1/1     Running   0          22m
-```
-
-Verify namespaces created in K8s systems
-
-```
-kubectl get ns
-```
-```
-NAME            STATUS    AGE
-default         Active    1m
-kube-public     Active    1m
-kube-system     Active    1m
-```
-
-Namespaces are intendent to isolate groups/teams and give them access to a set of resources. They avoid name collisions between resources. Namespaces provides with a soft Multitenancy, meaning they not provide full isolation.
-
-By default Kubernetes deployed by kubeadm starts with 3 namespaces:
-
-* **default**: The default namespace for objects with no other namespace. When listing resources with the kubectl get command, we’ve never specified the namespace explicitly, so kubectl always defaulted to the default namespace, showing us just the objects inside that namespace.
-* **kube-system**: The namespace for objects created by the Kubernetes system
-* **kube-public**: Used at cluster Bootstrap and contains cluster-info ConfigMap
-
 
 ## TIP
 
-If you want to add more workers in the future and did not save the join command generated by kubeadm during the init, here is how you can get the join command again 
+If we want to add more workers in the future and did not save the join command generated by kubeadm during the init, here is how we can get the join command again 
 
 ```
 kubeadm token create --print-join-command
 ```
 
-If you made a mistake and want to start over the kubadm init, you can reset what was done and start over by running:
+If we made a mistake and want to start over the kubadm init, we can reset what was done and start over by running:
 
 ```
-kubeadm reset
+sudo kubeadm reset
 ```
 
-If you want just switch the networking plugin for example, you can use kubectl to delete/revert the deployment done by the 'kubectl apply'
+If we want to check logs of pods.
 
 ```
-kubectl delete -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+kubectl -n [NAMESPACE] logs [POD_NAME]
 ```
 
-If you want to check logs of pods from system namespace.
+To get a node config file.
 
 ```
-kubectl --namespace kube-system logs [POD_NAME]
+kubectl get nodes manager1 -o yaml
 ```
