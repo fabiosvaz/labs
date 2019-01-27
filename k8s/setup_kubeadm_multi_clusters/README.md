@@ -1,19 +1,20 @@
 # Overview
-This lab will guide you on how to set up a K8s cluster environment using kubeadm. For the required networking plugin, this guide you have steps to install Flannel or Calico.
+This is a hands-on guide on how to set up a K8s cluster environment using kubeadm. For required k8s networking plugin, this guide you have steps to install Flannel or Calico.
 
-The cluster will be created with 3 VMS: manager1, worker1 and worker2. The three VMs will be configured by Vagrant with Ubuntu 18, 1 CPU and 2048GB ram. 
-If you want to modify the resources allocated to the VMS, you can modify the Vagrantfile.
+The k8s cluster will be created with 3 VMs: manager1, worker1 and worker2. Those three VMs will be configured by Vagrant with Ubuntu 18, 1 CPU and 2048GB ram. 
+
+If you want to modify the resources allocated to each VM, you can modify the Vagrantfile. The Vagrantfile in this hands-on is intended to be as simple as possible. So no provisioning is enabled by default, and all the steps required to setup the k8s cluster is expected.
 
 # Requirements
 - Vagrant (https://www.vagrantup.com/downloads.html)
 - VirtualBox (https://www.virtualbox.org/wiki/Downloads)
 
-For information on how to use Vagrant, visit the Vagrant lab. TBD
+For information on how to use Vagrant, check the [Vagrant](https://github.com/fabiosvaz/playground/tree/master/vagrant) playground section.
 
-# Lab
+# Hands-on
 
-## Create Cluster Nodes
-Checkout this lab and provide any desired modification to the Vagrantfile. Once ready, create the VMs using Vagrant.
+## Creating VMs
+Checkout the playground repo and navigate to k8s/setup_kubeadm_multi_clusters to create the VMs for this hands-on using Vagrant.
 
 ```
 vagrant up
@@ -32,11 +33,14 @@ worker1                   running (virtualbox)
 worker2                   running (virtualbox)
 ```
 
-From now on, you can ssh to each VM and follow the next instructions. vagrant ssh [vm_name]
+From now on, you can ssh to each VM and follow the next instructions. vagrant ssh [vm_name].
 
 ```
 vagrant ssh manager1
 ```
+
+## Configuring k8s Cluster Nodes
+Use 'vagrant ssh [vm_name]' to access each VM. 
 
 Add the Docker Repository on all three VMs.
 
@@ -64,7 +68,7 @@ sudo apt-get update
 sudo apt-get install -y docker-ce=18.06.1~ce~3-0~ubuntu kubelet=1.12.2-00 kubeadm=1.12.2-00 kubectl=1.12.2-00
 ```
 
-Add vagrant user to docker group to run docker commands with no sudo required
+Add vagrant user to docker group to run docker commands with no sudo required.
 
 ```
 sudo usermod -aG docker vagrant
@@ -76,7 +80,7 @@ Prevent updates for the installed packages above.
 sudo apt-mark hold docker-ce kubelet kubeadm kubectl
 ```
 
-Disable swap on all three servers. This is required by kubelet
+Disable swap on all three servers. This is required by kubelet.
 
 ```
 sudo swapoff -a
@@ -88,12 +92,12 @@ Permanently disable swap to keep it off after any vagrant halt/reboot. kubeadm p
 sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
 
-## Fix Kubelet config
-We need to fix a kubelet configuration on each VM to set the VM IP specified in the Vagrantfile. This is required as we are using Vagrant and creating a private network for the lab cluster.
+## Configuring Kubelet settings
+We need to proper configure kubelet settings on each VM to set the VM IP specified in the Vagrantfile. This is required as we are using Vagrant and creating a private network for this hands-on cluster.
 
 Vagrant creates two network interfaces for each machine. eth0 is NAT network, eth1 is a private network. By default, Kubernetes (Kubelet) will use the IP from the interface eth0 when we initialize the cluster and join any worker. We need to add the IP address from the eth1 interface on the VMs, enabling the manager’s API server to properly access the worker’s kubelet after the cluster initialization.
 
-To fix the issue, we need to edit the kubelet configuration for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
+To proper configure it, we need to edit the kubelet settings for all nodes <b>/etc/default/kubelet</b> and add a --node-ip flag.
 
 ```
 sudo vi /etc/default/kubelet
@@ -103,7 +107,7 @@ sudo vi /etc/default/kubelet
 KUBELET_EXTRA_ARGS=--node-ip=VM_IP_ADDR
 ```
 
-ssh to each node (This change also includes manager1), and add the flag in <b>/etc/default/kubelet</b>
+ssh to each node (This change also includes manager1), and add the configuration in <b>/etc/default/kubelet</b>
 
 ```
 Manager1 will be: KUBELET_EXTRA_ARGS=--node-ip=172.17.4.100
@@ -118,7 +122,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 ```
 
-## Initialize k8s cluster
+## Initializing k8s cluster
 Before initializing the master node (manager1), we need to choose a pod network add-on. Depending on which networking plugin you choose, we will need to set the '--pod-network-cidr' with the provider specific value.
 
 ```
@@ -181,7 +185,7 @@ NAME       STATUS     ROLES    AGE    VERSION
 manager1   NotReady   master   2m9s   v1.12.2
 ```
 
-Or add the '-o wide' option to get further information
+Or add the '-o wide' option to get further information.
 
 ```
 kubectl get nodes -o wide
@@ -196,7 +200,7 @@ manager1   NotReady   master   2m6s   v1.12.2   172.17.4.100   <none>        Ubu
 
 manager1 should show 'NotReady' status as no networking plugin was installed yet. Also, notice the INTERNAL-IP matches exactly the one we specified in the /etc/default/kubelet.
 
-Verify namespaces created in K8s cluster
+Verify namespaces created in K8s cluster.
 
 ```
 kubectl get ns
@@ -208,8 +212,8 @@ kube-public     Active    3m
 kube-system     Active    3m
 ```
 
-## Install networking plugin
-We must install a pod network add-on so that your pods can communicate with each other.The network must be deployed before any applications. Also, CoreDNS will not start up before a network is installed
+## Installing networking plugin
+We must install a pod network add-on so that your pods can communicate with each other.The network must be deployed before any applications. Also, CoreDNS will not start up before a network is installed.
 
 **For Calico**
 Install Calico with the following command on manager1.
@@ -291,7 +295,7 @@ kube-system   kube-scheduler-manager1            1/1     Running   0          5m
 As Calico was installed, CoreDNS will have an IP range based on the --pod-network-cidr=192.168.0.0/16 specified in the kubeadm init.
 
 ## Join workers
-We can now join the worker1 and worker2 to the lab cluster. The kubeadm init command that you ran on the master had printed a kubeadm join command containing a token and hash. You should run it on both worker nodes with sudo.
+We can now join the worker1 and worker2 to the k8s hands-on cluster. The kubeadm init command that you ran on the master had printed a kubeadm join command containing a token. You should run it on both worker nodes with sudo.
 
 sudo kubeadm join <master-ip>:<master-port> --token <token> --discovery-token-ca-cert-hash sha256:<hash>
 
@@ -333,14 +337,13 @@ kube-system   kube-scheduler-manager1            1/1     Running   0          11
 ```
 
 ## TIP
-
-If we want to add more workers in the future and did not save the join command generated by kubeadm during the init, here is how we can get the join command again 
+If we want to add more workers in the future and did not save the join command generated by kubeadm during the init, here is how we can get the join command again.
 
 ```
 kubeadm token create --print-join-command
 ```
 
-If we made a mistake and want to start over the kubadm init, we can reset what was done and start over by running:
+If we made a mistake and want to start over the kubadm init, we can reset what was done and start over by running reset command.
 
 ```
 sudo kubeadm reset
