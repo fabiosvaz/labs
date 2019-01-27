@@ -1,17 +1,15 @@
 # Overview
-
-This lab will guide you on how to use Vagrant to create virtual machines.
+This hands-on will guide you on how to use Vagrant to create virtual machines.
 
 Vagrant is a tool for building and managing virtual machine environments in a single workflow. With an easy-to-use workflow and focus on automation, Vagrant lowers development environment setup time, increases production parity, and makes the "works on my machine" excuse a relic of the past.
 
-This lab will be using VirtualBox as provider.
+This hands-on will be using VirtualBox as provider.
 
 Following are base information that will allow us to work with Vagrant. For more details and advanced configurations, please refer to official documents:
 
 - https://www.vagrantup.com/docs/
 
 # Getting Started
-
 Once you have Vagrant and VirtualBox installed, you can open a shell prompt and create a Vagrantfile by running the following command.
 
 ```
@@ -93,10 +91,9 @@ Vagrant.configure("2") do |config|
 end
 ```
 
-From now on, you can open the Vagrantfile created and customize it.
+From now on, you can open the created Vagrantfile and customize it.
 
 ## Box
-
 Vagrant has multiple boxes in the cloud repository, you can search for a desired box by accessing.
 
 ```
@@ -112,7 +109,6 @@ end
 ```
 
 ## Network
-
 In order to access the Vagrant environment created, Vagrant exposes some high-level networking options for things such as forwarded ports, connecting to a public network, or creating a private network.
 
 One option is to use port forwarding. Port forwarding allows you to specify ports on the guest machine to share via a port on the host machine. This allows you to access a port on your own machine, but actually have all the network traffic forwarded to a specific port on the guest machine.
@@ -169,7 +165,6 @@ end
 IPv6 supports for private networks was added in Vagrant 1.7.5 and may not work with every provider.
 
 ## Provider Configurations
-
 Provider-specific configuration can be specified to fine-tune the VM that will be created. Example for VirtualBox.
 
 ```
@@ -184,7 +179,6 @@ end
 ```
 
 ## Provision
-
 Vagrant has built-in support for automated provisioning. Using this feature, Vagrant will automatically install software when you start a VM so that the guest machine can be repeatably created and ready-to-use.
 
 we can configure Vagrant to run a shell script when setting up our machine. We do this by editing the Vagrantfile.
