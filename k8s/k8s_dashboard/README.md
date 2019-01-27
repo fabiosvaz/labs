@@ -10,10 +10,9 @@ Dashboard also provides information on the state of Kubernetes resources in your
 # Requirements
 - K8s cluster configured. [Setup k8s multicluster](https://github.com/fabiosvaz/playground/tree/master/k8s/setup_kubeadm_multi_clusters) 
 
-# Getting Started
+# Hands-on
 
 ## Deployment
-
 The Dashboard deployment can be executed using kubectl poiting to the official recommended manifest file
 
 ```
@@ -63,7 +62,6 @@ kubectl get -n kube-system logs
 ```
 
 ## Access Configuration
-
 Since Dashboard v1.7, no full admin privileges are granted by default. All the privileges are revoked and only minimal ones are granted.
 
 For the purpose of this hands-on, we will be adding full admin privileges to Dashboard's Service Account
@@ -83,7 +81,6 @@ configmaps is forbidden: User "system:serviceaccount:kube-system:kubernetes-dash
 ```
 
 ## Access Dashboard via kubectl proxy
-
 By default Dashboard will only be accessible locally, so we need to create a proxy server between our machine and Kubernetes API server. We will disable the proxy filter to accept all hosts.
 
 ```
@@ -122,7 +119,6 @@ Once you sign in, you should see the Overview page of the dashboard.
 ![Dashboard Overview](img/k8s_dashboard_overview.jpeg)
 
 # Heapster
-
 As part of metric integration, Dashboard uses heapster to provide information about cpu and memory usage. It needs to be running in our cluster, otherwise a metric client health check will fail and Dashboard will skip the the metrics.
 
 # References
