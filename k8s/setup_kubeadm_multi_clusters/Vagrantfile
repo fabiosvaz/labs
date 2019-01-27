@@ -6,7 +6,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.box = "generic/ubuntu1804"
 
-  #config.vm.provision :shell, path: "bootstrap.sh"
+  #config.vm.provision :shell, path: "provision/bootstrap.sh"
 
   config.vm.define "manager1", primary: true do |manager|
     manager.vm.network "private_network", ip: "172.17.4.100"
@@ -17,7 +17,7 @@ Vagrant.configure("2") do |config|
 	    vb.cpus = 1
     end
 
-    #manager.vm.provision :shell, path: "manager.sh"
+    #manager.vm.provision :shell, path: "provision/manager.sh"
   end
 
   config.vm.define "worker1" do |worker1|
@@ -29,7 +29,7 @@ Vagrant.configure("2") do |config|
 	    vb.cpus = 1
     end
 
-    #worker1.vm.provision :shell, path: "worker.sh"
+    #worker1.vm.provision :shell, path: "provision/worker.sh"
   end
 
   config.vm.define "worker2" do |worker2|
@@ -41,6 +41,6 @@ Vagrant.configure("2") do |config|
 	    vb.cpus = 1
     end
 
-    #worker2.vm.provision :shell, path: "worker.sh"
+    #worker2.vm.provision :shell, path: "provision/worker.sh"
   end
 end
