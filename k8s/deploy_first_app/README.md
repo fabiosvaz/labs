@@ -149,6 +149,84 @@ And we should see.
 Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-598f57b95c-rp955 | v=1
 ```
 
+## Create a Service
+
+By default, we have a service called kubernetes that is created when kubeadm starts the cluster. We can check it by running kubectl.
+
+```
+kubectl get services
+```
+
+And we should see.
+
+```
+NAME                  TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes            ClusterIP   10.96.0.1       <none>        443/TCP          30m
+```
+
+To create a new service to our application and expose it to external traffic we will use the expose command with NodePort as parameter.
+
+```
+kubectl expose deployment/kubernetes-bootcamp --type="NodePort" --port 8080
+```
+
+And we should see.
+
+```
+service/kubernetes-bootcamp exposed
+```
+
+If we run again kubectl to check k8s services
+
+```
+kubectl get services
+```
+
+we should see.
+
+```
+NAME                  TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes            ClusterIP   10.96.0.1       <none>        443/TCP          33m
+kubernetes-bootcamp   NodePort    10.110.60.234   <none>        8080:31067/TCP   33m
+```
+
+To get further information about the service created, we can run 'kubectl describe'.
+
+```
+kubectl describe services/kubernetes-bootcamp
+```
+
+and we should see something like.
+
+```
+Name:                     kubernetes-bootcamp
+Namespace:                default
+Labels:                   run=kubernetes-bootcamp
+Annotations:              <none>
+Selector:                 run=kubernetes-bootcamp
+Type:                     NodePort
+IP:                       10.110.60.234
+Port:                     <unset>  8080/TCP
+TargetPort:               8080/TCP
+NodePort:                 <unset>  31067/TCP
+Endpoints:                172.18.0.2:8080
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+```
+
+With the service created and having the type set as NodePort, we can execute a curl command to our application without requiring kubectl proxy. The port to be used should be the one assigned to NodePort information. This is the port exposed for the 'external world'. The port 8080 is exposed internally in the k8s cluster.
+
+```
+curl http://localhost:31067
+```
+
+And we should see.
+
+```
+Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-598f57b95c-rp955 | v=1
+```
+
 ## Clean up
 
 Once we are done we out hands on, we can clean up out k8s cluster by running the following steps.
