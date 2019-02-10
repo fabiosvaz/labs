@@ -8,11 +8,7 @@ This is a hands-on guide on how to deploy an app in a k8s cluster. We will be cr
 
 ## Deployment
 
-Firstly, we need to get inside the manager1 node by running.
-
-```
-vagrant ssh manager1
-```
+All the commands here will be executed in the manager node.
 
 For this first app deployment, we will be using the official kubernetes bootcamp app. To run the bootcamp app in out running k8s cluster, we can use 'kubectl run' command
 
