@@ -98,7 +98,7 @@ Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-598f57b95c-rbncq | 
 
 K8s will ensure the desired number of deployment will be respected based on the scale set. In the previous scaling up, we have scale the app to 3 replicas. So if one pod is deleted or goes down, k8s will ensure a new pod is created and scheduled in a node with available resources. 
 
-To test it, open a new terminal and ssh to the manager node. run a 'watch kubectl get pods' command in this new terminal. Once you have done it and started to monitor the pods, lets delete one of the pods.
+To test it, open a new terminal and ssh to the manager node. run a 'kubectl get pods --watch' command in this new terminal. Once you have done it and started to monitor the pods, lets delete one of the pods.
 
 ```
 kubectl delete pods kubernetes-bootcamp-598f57b95c-c472s
