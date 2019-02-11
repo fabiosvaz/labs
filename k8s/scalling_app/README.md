@@ -11,9 +11,9 @@ This is a hands-on guide on how to scale up and down an app in a k8s cluster.
 
 All the commands here will be executed in the manager node.
 
-When traffic to an app increases and we need to scale the application to keep up with user demand, we can increase the number of replicas deployed in k8s cluster.
+When traffic to an app increases and we need to scale an application to keep up with user demands, we can scale up the number of replicas deployed in k8s cluster. By default, a 'kubectl run' command you deploy 1 replica of an app. We can specify the param --replicas as an option to deploy right away more than 1. But, when an app has been deployed with only 1 replica, we can use the 'kubectl scale' command to increase it.
 
-We can check the current deployment by running 'kubectl get deployments'.
+Let's check the current deployment by running 'kubectl get deployments'.
 
 ```
 NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
