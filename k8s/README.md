@@ -1,6 +1,6 @@
 # Overview
 
-This folder contains hands-on related to k8s. The purpose of it is to exercise the k8s setup as well as its administration and usage.
+This folder contains hands-on guides related to k8s. The purpose of it is to exercise the k8s setup as well as its administration and usage.
 
 # Scope
 
