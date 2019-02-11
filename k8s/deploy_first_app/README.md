@@ -10,7 +10,7 @@ This is a hands-on guide on how to deploy an app in a k8s cluster. We will be cr
 
 All the commands here will be executed in the manager node.
 
-For this first app deployment, we will be using the official kubernetes bootcamp app. To run the bootcamp app in out running k8s cluster, we can use 'kubectl run' command
+For this first app deployment, we will be using the official kubernetes bootcamp app. To run the bootcamp app in our running k8s cluster, we can use 'kubectl run' command
 
 ```
 kubectl run kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1 --port=8080
@@ -24,13 +24,7 @@ And we should see as output.
 deployment.apps/kubernetes-bootcamp created 
 ```
 
-We can also verify the deployments using 'kubectl get deployments'.
-
-```
-kubectl get deployments
-```
-
-And we should see.
+We can also verify the deployments using 'kubectl get deployments'. And we should see.
 
 ```
 NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
@@ -41,20 +35,14 @@ kubernetes-bootcamp   1         1         1            1           6m
 
 Once deployed, we can now run more kubectl commands and check more information about our first app deployment.
 
-Check pods
-
-```
-kubectl get pods
-```
-
-And we should see.
+Check pods by running 'kubectl get pods'. And we should see.
 
 ```
 NAME                                   READY   STATUS    RESTARTS   AGE
 kubernetes-bootcamp-598f57b95c-rp955   1/1     Running   0          28s
 ```
 
-We can also see where the new pod was created.
+We can also see where the new pod were created.
 
 ```
 kubectl get pods -o wide
@@ -119,7 +107,7 @@ Now, we can do a request to our deployed app by using proxy. First we need to ge
 kubectl get pods
 ```
 
-And we should get the name created for out pod.
+And we should get the name created for our pod.
 
 ```
 NAME                                   READY   STATUS    RESTARTS   AGE
@@ -211,10 +199,10 @@ External Traffic Policy:  Cluster
 Events:                   <none>
 ```
 
-With the service created and having the type set as NodePort, we can execute a curl command to our application without requiring kubectl proxy. The port to be used should be the one assigned to NodePort information. This is the port exposed for the 'external world'. The port 8080 is exposed internally in the k8s cluster.
+With the service created and having the type set as NodePort, we can execute a curl command to our application without requiring kubectl proxy. The port to be used should be the one assigned to NodePort information. This is the port exposed for the 'external world'. In this hands-on, it was 31067. The port 8080 is exposed internally in the k8s cluster.
 
 ```
-curl http://localhost:31067
+curl http://localhost:${NODE_PORT}
 ```
 
 And we should see.
@@ -225,7 +213,7 @@ Hello Kubernetes bootcamp! | Running on: kubernetes-bootcamp-598f57b95c-rp955 | 
 
 ## Clean up
 
-Once we are done we out hands on, we can clean up out k8s cluster by running the following steps.
+Once we are done if our hands on, we can clean up our k8s cluster by running the following steps.
 
 To stop proxy in the second terminal, just hit a CTRL+C. Once you do that, we should not have any more communication between our host and the k8s cluster.
 
