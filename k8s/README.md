@@ -1,6 +1,6 @@
 # Overview
 
-This folder contains labs related to k8s. The idea behind those labs is exercise the k8s setup as well as its administration and usage.
+This folder contains hands-on related to k8s. The purpose of it is to exercise the k8s setup as well as its administration and usage.
 
 # Scope
 
